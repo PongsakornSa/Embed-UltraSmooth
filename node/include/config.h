@@ -7,6 +7,9 @@
 #ifndef SIM_EXTRA_NODES
 #define SIM_EXTRA_NODES 0
 #endif
+#ifndef MOCK_SENSORS
+#define MOCK_SENSORS 0 // 1 = fake PMS/SHT/rain values (env node_out01_mock)
+#endif
 
 // ---- Pins (ESP32 DevKit v1) ----
 #define PIN_I2C_SDA 21     // SHT31

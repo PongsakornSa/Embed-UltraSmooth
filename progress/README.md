@@ -13,4 +13,4 @@
 
 | วันที่ | สรุป |
 |---|---|
-| [2026-11-19](2026-11-19.md) | หน้าเว็บ dashboard, node โหมด mock, gateway อ่าน MQ-2, ขึ้น GitHub |
+| [2026-11-19](2026-11-19.md) | หน้าเว็บ dashboard, node โหมด mock, ย้าย MQ-2 ไป node, ขึ้น GitHub |

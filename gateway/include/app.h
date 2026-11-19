@@ -70,9 +70,6 @@ struct IndoorState {
   bool occupied = false;
   uint32_t lastMotionMs = 0;
   bool shtOk = false, scdOk = false, bhOk = false;
-  uint16_t smokeRaw = 0;  // MQ-2 ADC (higher = more smoke/gas)
-  bool smokeOk = false;   // heater warmed up -> reading valid
-  bool smoky = false;
 };
 
 struct ActState {

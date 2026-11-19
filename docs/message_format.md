@@ -30,7 +30,7 @@ Topic `@shadow/data/update`, every 15 s:
 
 ```json
 {"data":{
-  "ts":1732000000, "in_temp":29.41, "in_rh":61.2, "co2":812, "lux":420, "occupied":1, "in_smoke":480, "in_smoke_ok":1, "in_smoky":0,
+  "ts":1732000000, "in_temp":29.41, "in_rh":61.2, "co2":812, "lux":420, "occupied":1,
   "out_pm25":42, "out_pm10":58, "out_temp":31.20, "out_rh":68.0, "raining":0, "rain_raw":3980, "out_smoke":410, "smoky":0,
   "ac_on":1, "fan_pct":73, "ac_src":"ai", "ac_manual":0,
   "window_open":0, "window_angle":0, "window_src":"rule", "window_fault":0, "estop":0,

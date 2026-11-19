@@ -85,9 +85,6 @@ static String buildSnapshot() {
   if (in.scdOk) d["co2"] = in.co2;
   if (!isnan(in.lux)) d["lux"] = (int)in.lux;
   d["occupied"] = in.occupied ? 1 : 0;
-  d["in_smoke"] = in.smokeRaw;
-  d["in_smoke_ok"] = in.smokeOk ? 1 : 0;
-  d["in_smoky"] = in.smoky ? 1 : 0;
 
   const NodeState *out = primaryOutdoorNode();
   if (out) {

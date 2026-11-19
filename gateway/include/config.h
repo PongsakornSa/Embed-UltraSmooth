@@ -16,11 +16,6 @@
 #define PIN_FAN_PWM 18        // MOSFET gate -> 12 V fan ("air conditioner")
 #define PIN_SERVO 19          // window servo signal
 #define PIN_LED_STATUS 2      // on-board LED: solid = cloud OK, blink = offline
-#define PIN_SMOKE_AO 34       // MQ-2 analog out via 10k/20k divider (ADC1: works with Wi-Fi on)
-
-// ---- Indoor smoke (MQ-2) ----
-#define SMOKE_WARMUP_MS 60000     // heater needs ~1 min before readings mean anything
-#define SMOKE_THRESHOLD 1800      // ADC raw above this = smoke (calibrate with incense)
 
 // ---- LEDC (PWM) channels: different timers so frequencies do not clash ----
 #define LEDC_CH_SERVO 0       // timer 0, 50 Hz

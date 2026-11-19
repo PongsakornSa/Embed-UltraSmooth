@@ -156,7 +156,7 @@ static void fillHeader(SensorPacket &p, const char *id, int slot) {
 // Mock mode (env node_out01_mock): no sensors needed, values keep changing so the
 // whole path node -> gateway -> cloud -> dashboard can be shown. Sent as the real
 // node id (not SF_SIMULATED) so the gateway uses it for control decisions.
-// Cycle = 10 min: PM2.5 crosses the 37.5 limit, rain in minute 7, smoke in minute 9.
+// Cycle = 10 min: PM2.5 crosses the 37.5 limit, rain in minute 7. Smoke (MQ-2) is real.
 static SensorPacket readMockNode() {
   SensorPacket p;
   fillHeader(p, NODE_ID, 0);
@@ -169,11 +169,15 @@ static SensorPacket readMockNode() {
   bool rain = minuteInCycle >= 7 && minuteInCycle < 8;
   p.rain_raw = rain ? 1200 + random(0, 300) : 3900 + random(0, 150);
   p.raining = rain;
-  bool smoke = minuteInCycle >= 9;
-  p.smoke_raw = smoke ? 2200 + random(0, 300) : 450 + random(0, 80);
-  p.smoky = smoke;
-  p.sensor_flags = SF_PMS | SF_SHT | SF_RAIN | SF_SMOKE;
-  Serial.printf("[MOCK] pm25=%.0f temp=%.1f rain=%d smoke=%d\n", p.pm25, p.temp_c, p.raining, p.smoky);
+  // MQ-2 is wired to this board (GPIO34) -> real reading, not mocked
+  uint32_t sum = 0;
+  for (int i = 0; i < 8; i++) sum += analogRead(PIN_SMOKE_AO);
+  p.smoke_raw = sum / 8;
+  p.sensor_flags = SF_PMS | SF_SHT | SF_RAIN;
+  if (millis() > SMOKE_WARMUP_MS) {
+    p.smoky = p.smoke_raw > SMOKE_THRESHOLD;
+    p.sensor_flags |= SF_SMOKE;
+  }
   return p;
 }
 #endif
@@ -251,6 +255,51 @@ static void handlePacket(SensorPacket p) {
   }
 }
 
+// ---------------------------------------------------------------- reading log
+// One block per reading on USB serial: what each sensor gave, and hints when a
+// value looks like a wiring problem. ADC volts are approximate (12 bit, 11 dB).
+static float adcVolts(uint16_t raw) { return raw * 3.3f / 4095.0f; }
+
+static void printReading(const SensorPacket &p) {
+  const char *mockTag = MOCK_SENSORS ? "MOCK   " : "";
+  Serial.printf("\n[read] seq=%lu uptime=%lus%s\n", (unsigned long)p.seq, millis() / 1000,
+                MOCK_SENSORS ? "  (MOCK mode: PMS/SHT/rain are fake, MQ-2 is real)" : "");
+
+  // PMS5003 (UART)
+  if (p.sensor_flags & SF_PMS) {
+    Serial.printf("  PMS5003 %sOK      PM2.5=%.0f  PM10=%.0f ug/m3\n", mockTag, p.pm25, p.pm10);
+  } else if (pms.lastFrameMs() == 0) {
+    Serial.printf("  PMS5003 MISSING no frame ever (check TX->GPIO%d, 5V, GND)\n", PIN_PMS_RX);
+  } else {
+    Serial.printf("  PMS5003 STALE   last frame %lus ago\n", (millis() - pms.lastFrameMs()) / 1000);
+  }
+
+  // SHT31 (I2C)
+  if (p.sensor_flags & SF_SHT) {
+    Serial.printf("  SHT31   %sOK      temp=%.2f C  RH=%.1f %%\n", mockTag, p.temp_c, p.rh);
+  } else {
+    Serial.printf("  SHT31   MISSING no reply at 0x44 (check SDA=%d SCL=%d, 3V3, GND)\n", PIN_I2C_SDA, PIN_I2C_SCL);
+  }
+
+  // Rain (analog, lower = wetter)
+  Serial.printf("  Rain    %sraw=%4u  pin=%.2fV  -> %s (wet below %d)\n", mockTag, p.rain_raw,
+                adcVolts(p.rain_raw), p.raining ? "WET" : "dry", RAIN_WET_THRESHOLD);
+
+  // MQ-2 (analog via 10k/20k divider, higher = more smoke)
+  float vPin = adcVolts(p.smoke_raw);
+  Serial.printf("  MQ-2    raw=%4u  pin=%.2fV  AO~%.2fV  -> ", p.smoke_raw, vPin, vPin * 1.5f);
+  if (!(p.sensor_flags & SF_SMOKE)) {
+    Serial.printf("warming up (%lus left)\n", (SMOKE_WARMUP_MS - millis()) / 1000);
+  } else {
+    Serial.printf("%s (smoke above %d)\n", p.smoky ? "SMOKE" : "clear", SMOKE_THRESHOLD);
+  }
+  if (p.smoke_raw < 20) {
+    Serial.printf("          !! ~0V at GPIO%d: MQ-2 not powered (VCC->5V) or AO/divider wire loose\n", PIN_SMOKE_AO);
+  } else if (p.smoke_raw > 4080) {
+    Serial.printf("          !! ADC saturated: AO wired directly? use AO->10k->GPIO%d->20k->GND\n", PIN_SMOKE_AO);
+  }
+}
+
 // linkPDR     = ACKed transmissions / all transmissions (raw radio quality)
 // deliveryPDR = packets finally ACKed / packets generated (after retries+backlog)
 static void printStats() {
@@ -293,9 +342,7 @@ void loop() {
   if (millis() - lastSend >= SEND_INTERVAL_MS) {
     lastSend = millis();
     SensorPacket p = readRealNode();
-    Serial.printf("[node] seq=%lu pm25=%.0f temp=%.1f rh=%.0f rain=%u(%u) smoke=%u(%u)%s\n",
-                  p.seq, p.pm25, p.temp_c, p.rh, p.raining, p.rain_raw, p.smoky, p.smoke_raw,
-                  (p.sensor_flags & SF_SMOKE) ? "" : " warming-up");
+    printReading(p);
     handlePacket(p);
     for (int s = 1; s <= SIM_EXTRA_NODES; s++) handlePacket(readSimNode(s));
   }

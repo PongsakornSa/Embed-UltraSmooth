@@ -1,5 +1,5 @@
 // sensors.cpp - Indoor sensors on the gateway: SCD40 (CO2), SHT31 (temp/RH),
-// BH1750 (light), presence (PIR / LD2410), MQ-2 smoke (analog). All drivers are our own (common/include/drivers).
+// BH1750 (light), presence (PIR / LD2410). All drivers are our own (common/include/drivers).
 #include "app.h"
 #include <Wire.h>
 #include "drivers/scd4x.h"
@@ -27,10 +27,6 @@ void sensorTask(void *) {
     bool okScd = false;
     if (scd.dataReady()) okScd = scd.read(co2, scdT, scdH);
     bool presenceHigh = digitalRead(PIN_PRESENCE) == HIGH;
-    uint32_t smokeSum = 0; // MQ-2: average 8 samples to smooth ADC noise
-    for (int i = 0; i < 8; i++) smokeSum += analogRead(PIN_SMOKE_AO);
-    uint16_t smokeRaw = smokeSum / 8;
-    bool smokeOk = millis() > SMOKE_WARMUP_MS;
 
     {
       Lock l;
@@ -41,9 +37,6 @@ void sensorTask(void *) {
       in.lux = okBh ? lux : NAN;
       if (okScd) { in.co2 = co2; in.scdOk = true; scdFails = 0; }
       else if (++scdFails > 4) { in.scdOk = false; in.co2 = 0; } // >20 s without data
-      in.smokeRaw = smokeRaw;
-      in.smokeOk = smokeOk;
-      in.smoky = smokeOk && smokeRaw > SMOKE_THRESHOLD;
       if (presenceHigh) in.lastMotionMs = millis();
       in.occupied = in.lastMotionMs != 0 && millis() - in.lastMotionMs < OCCUPANCY_HOLD_MS;
     }

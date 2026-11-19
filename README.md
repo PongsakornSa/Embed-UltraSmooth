@@ -8,7 +8,7 @@ usually press the AC button** and turns the AC on a few minutes earlier
 
 ```
  [Sensor node - outdoor]                [Gateway - indoor]                       [Cloud]
-  PMS5003  PM2.5/PM10                    SCD40, SHT31, BH1750, PIR, MQ-2          NETPIE (MQTT/TLS)
+  PMS5003  PM2.5/PM10                    SCD40 CO2, SHT31, BH1750, PIR            NETPIE (MQTT/TLS)
   SHT31    temp/RH      --ESP-NOW-->     FreeRTOS tasks, decision logic   --->    shadow + feed (storage)
   Rain, MQ-2 smoke      <---ACK---       on-device AI (MLP)                       web dashboard
                                          Fan "AC" (MOSFET PWM)                    Telegram alerts
@@ -66,7 +66,7 @@ retrain on real logs before the demo.
 
 | Item | Where |
 |---|---|
-| M1 sensors (7 types) | node: PMS5003, SHT31, rain, MQ-2 smoke; gateway: SCD40, SHT31 (same type), BH1750, PIR/LD2410, MQ-2 indoor smoke |
+| M1 sensors (7 types) | node: PMS5003, SHT31, rain, MQ-2 smoke; gateway: SCD40, SHT31 (same type), BH1750, PIR/LD2410 |
 | M2 actuator | window servo, fan (DC motor) - `gateway/src/actuators.cpp` |
 | M3 node -> gateway | ESP-NOW + ACK - `node/src/main.cpp`, `gateway/src/espnow_link.cpp` |
 | M4 AI closed loop | `gateway/src/ai.cpp` -> `control.cpp` turns AC on when prob >= 0.7 |

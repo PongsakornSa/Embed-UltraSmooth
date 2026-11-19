@@ -37,8 +37,6 @@ Box: waterproof, sensor holes facing down; rain plate outside the box.
 | Limit switch CLOSED | COM / NO | GPIO14 / GND | pressed when window fully closed |
 | Servo MG996R | signal | GPIO19 | power from 5 V buck, **not** from the ESP32 |
 | Fan MOSFET module | SIG / IN | GPIO18 | module V+ / V- to 12 V, fan on output |
-| MQ-2 smoke (indoor) | VCC / GND | 5V (VIN) / GND | warm-up ~1 min |
-| | AO | GPIO34 **via divider** | AO -> 10 k -> GPIO34 -> 20 k -> GND. **Never connect AO directly** |
 
 ## Power
 
