@@ -8,7 +8,7 @@
 3. Device -> **Feed**: turn the feed ON so every shadow update is stored
    (this is the raw-data cloud storage, M5). Add the numeric fields to the
    **Schema** with type `number`:
-   `in_temp in_rh co2 lux occupied out_pm25 out_pm10 out_temp out_rh raining out_smoke smoky
+   `in_temp in_rh co2 lux occupied in_smoke in_smoky out_pm25 out_pm10 out_temp out_rh raining out_smoke smoky
    ac_on fan_pct window_open ai_prob ac_presses nodes_online`.
 4. Export the feed as CSV any time (Feed -> Export) for the report graphs.
 

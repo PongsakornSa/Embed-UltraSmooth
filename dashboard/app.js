@@ -15,7 +15,7 @@ const METRICS = {
   temp:  { unit: '°C',    series: [['in_temp', 'ในห้อง'], ['out_temp', 'นอกห้อง']] },
   co2:   { unit: 'ppm',   series: [['co2', 'CO₂']] },
   pm:    { unit: 'µg/m³', series: [['out_pm25', 'PM2.5'], ['out_pm10', 'PM10']] },
-  smoke: { unit: 'raw',   series: [['out_smoke', 'MQ-2']] },
+  smoke: { unit: 'raw',   series: [['in_smoke', 'ในห้อง'], ['out_smoke', 'นอกห้อง']] },
 };
 const SRC_TH = { button: 'ปุ่ม', dashboard: 'เว็บ', ai: 'AI', rule: 'อัตโนมัติ', auto: 'อัตโนมัติ', estop: 'E-stop', safety: 'ความปลอดภัย', none: '–' };
 
@@ -112,6 +112,10 @@ function render(d) {
   } else tileState('tile-co2', null, 'ไม่มีเซ็นเซอร์', 'co2_hint');
   setText('lux', has(d.lux) ? d.lux.toFixed(0) : '–');
   setText('occupied', has(d.occupied) ? (d.occupied ? 'มีคน' : 'ว่าง') : '–');
+  setText('in_smoke', has(d.in_smoke) ? d.in_smoke.toFixed(0) : '–');
+  if (!has(d.in_smoke)) tileState('tile-insmoke', null, '', 'insmoke_hint');
+  else if (!d.in_smoke_ok) tileState('tile-insmoke', null, 'กำลังอุ่นเครื่อง', 'insmoke_hint');
+  else tileState('tile-insmoke', d.in_smoky ? 'bad' : 'good', d.in_smoky ? 'ตรวจพบควันในห้อง!' : 'ปกติ', 'insmoke_hint');
 
   // outdoor
   const nodes = d.nodes || {};
@@ -175,6 +179,7 @@ function renderAlerts(d, stale) {
   const a = [];
   if (d.estop) a.push(['bad', 'Emergency Stop ทำงานอยู่ พัดลมหยุด หน้าต่างล็อก']);
   if (d.window_fault) a.push(['bad', 'หน้าต่างติดขัด (เกิน 6 วินาที) ตรวจสอบแล้วกดรีเซ็ต']);
+  if (d.in_smoky) a.push(['bad', 'ตรวจพบควันในห้องเรียน!']);
   if (d.smoky) a.push(['bad', 'ตรวจพบควันนอกห้อง ปิดหน้าต่างแล้ว']);
   if (d.raining) a.push(['warn', 'ฝนตก ปิดหน้าต่าง']);
   if (has(d.out_pm25) && d.out_pm25 > PM_BAD) a.push(['warn', `PM2.5 นอกห้อง ${d.out_pm25.toFixed(0)} µg/m³ ปิดหน้าต่าง`]);

@@ -152,7 +152,36 @@ static void fillHeader(SensorPacket &p, const char *id, int slot) {
   p.uptime_ms = millis();
 }
 
+#if MOCK_SENSORS
+// Mock mode (env node_out01_mock): no sensors needed, values keep changing so the
+// whole path node -> gateway -> cloud -> dashboard can be shown. Sent as the real
+// node id (not SF_SIMULATED) so the gateway uses it for control decisions.
+// Cycle = 10 min: PM2.5 crosses the 37.5 limit, rain in minute 7, smoke in minute 9.
+static SensorPacket readMockNode() {
+  SensorPacket p;
+  fillHeader(p, NODE_ID, 0);
+  float t = millis() / 1000.0f;
+  float minuteInCycle = fmodf(t / 60.0f, 10.0f);
+  p.pm25 = 32 + 18 * sinf(t * 2 * PI / 300.0f) + random(-2, 3); // 5 min period, ~12-52
+  p.pm10 = p.pm25 * 1.4f + random(0, 4);
+  p.temp_c = 31 + 2.5f * sinf(t * 2 * PI / 600.0f) + random(-3, 4) / 10.0f;
+  p.rh = 65 + 8 * cosf(t * 2 * PI / 600.0f) + random(-2, 3);
+  bool rain = minuteInCycle >= 7 && minuteInCycle < 8;
+  p.rain_raw = rain ? 1200 + random(0, 300) : 3900 + random(0, 150);
+  p.raining = rain;
+  bool smoke = minuteInCycle >= 9;
+  p.smoke_raw = smoke ? 2200 + random(0, 300) : 450 + random(0, 80);
+  p.smoky = smoke;
+  p.sensor_flags = SF_PMS | SF_SHT | SF_RAIN | SF_SMOKE;
+  Serial.printf("[MOCK] pm25=%.0f temp=%.1f rain=%d smoke=%d\n", p.pm25, p.temp_c, p.raining, p.smoky);
+  return p;
+}
+#endif
+
 static SensorPacket readRealNode() {
+#if MOCK_SENSORS
+  return readMockNode();
+#endif
   SensorPacket p;
   fillHeader(p, NODE_ID, 0);
 

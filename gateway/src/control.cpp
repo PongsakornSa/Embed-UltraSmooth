@@ -165,6 +165,7 @@ static void evaluate() {
   // ---- Alerts on conditions
   if (in.scdOk && in.co2 >= CO2_ALERT) raiseAlert("co2", "Indoor CO2 %u ppm - please ventilate", in.co2);
   if (!in.scdOk && now > 60000) raiseAlert("scd", "CO2 sensor not responding");
+  if (in.smoky) raiseAlert("insmoke", "Smoke detected INSIDE the classroom (MQ-2 raw %u)", in.smokeRaw);
   for (int i = 0; i < g.nodeCount; i++) {
     const NodeState &n = g.nodes[i];
     if (n.received && now - n.lastSeenMs > NODE_OFFLINE_MS) {
