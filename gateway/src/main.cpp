@@ -1,6 +1,6 @@
 // Gateway - Smart Classroom
 // Creates shared state, queues and the FreeRTOS tasks. All work happens in tasks;
-// loop() stays empty.
+// loop() serves the local web dashboard independently of blocking cloud I/O.
 #include <Arduino.h>
 #include <Wire.h>
 #include <LittleFS.h>
@@ -25,8 +25,10 @@ void setup() {
   prefs.end();
 
   if (!LittleFS.begin(true)) Serial.println("[gw] LittleFS mount failed");
+#if !GATEWAY_WEB_ONLY
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
   Wire.setClock(100000);
+#endif
 
   gMutex = xSemaphoreCreateMutex();
   qEvents = xQueueCreate(16, sizeof(Event));
@@ -37,6 +39,7 @@ void setup() {
   // Task watchdog: a stuck control/window task reboots the board (robustness)
   esp_task_wdt_init(10, true);
 
+#if !GATEWAY_WEB_ONLY
   actuatorsBegin(); // first: put fan off and window in a known state
   inputsBegin();
   sensorsBegin();
@@ -46,13 +49,18 @@ void setup() {
   xTaskCreatePinnedToCore(windowTask,  "window",  3072, nullptr, 5, &hWindowTask, 1);
   xTaskCreatePinnedToCore(inputTask,   "input",   3072, nullptr, 4, nullptr, 1);
   xTaskCreatePinnedToCore(controlTask, "control", 4096, nullptr, 4, nullptr, 1);
-  xTaskCreatePinnedToCore(nodeTask,    "node",    4096, nullptr, 3, nullptr, 1);
   xTaskCreatePinnedToCore(sensorTask,  "sensor",  4096, nullptr, 2, nullptr, 1);
   xTaskCreatePinnedToCore(aiTask,      "ai",      4096, nullptr, 2, nullptr, 1);
+#else
+  Serial.printf("[gw] receiver + web server; MQ-135 source node=%s, no local sensors/actuators\n", MQ135_NODE_ID);
+#endif
+  xTaskCreatePinnedToCore(nodeTask,    "node",    4096, nullptr, 3, nullptr, 1);
   // cloud task on core 0 next to the Wi-Fi stack; it also starts ESP-NOW
   xTaskCreatePinnedToCore(cloudTask,   "cloud",  12288, nullptr, 1, nullptr, 0);
+  xTaskCreatePinnedToCore(webDataTask, "webdata",12288, nullptr, 1, nullptr, 0);
 }
 
 void loop() {
-  vTaskDelete(nullptr); // everything runs in tasks
+  webPoll();
+  delay(5);
 }

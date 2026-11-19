@@ -43,7 +43,30 @@ usually press the AC button** and turns the AC on a few minutes earlier
    ```
    `node_out01_sim` = real node that also sends two simulated nodes (`sim-02`, `sim-03`).
    `node_out02` = second physical node.
-5. Later gateway updates over Wi-Fi (OTA): set `GW_OTA_PASSWORD` env var, then
+5. Local ESP32 dashboard: connect your phone/computer to the same Wi-Fi as the
+   gateway and open the address printed as `[web] http://<IP>/` in Serial Monitor.
+   The board serves the page itself on port 80, with no external assets or NETPIE
+   keys in the browser. It shows MQ-135 ADC read back from NETPIE Shadow, sensor availability, connection
+   and device status, refreshing every 5 seconds. `GET /api/status` returns JSON;
+   unavailable sensor measurements are `null`. The page is read-only. Network
+   client isolation on some hotspots can prevent access between devices.
+   The default `GATEWAY_WEB_ONLY=1` role receives ESP-NOW and serves HTTP; local
+   sensor, OLED, control, AI and actuator tasks are disabled. NETPIE forwarding
+   remains enabled. MQ-135 is connected to GPIO34 on the **node**, not the gateway.
+   Existing protocol v2 `smoke_raw` is interpreted as MQ-135 raw ADC for
+   `MQ135_NODE_ID` (`out-01`, configurable in `gateway/include/config.h`). The node
+   must run `node_out01` with real readings. Mock mode cannot provide real MQ-135
+   measurements. The data flow is node -> ESP-NOW -> gateway -> MQTT/TLS -> NETPIE -> HTTPS REST
+   -> board web server -> browser. The board reads NETPIE every 5 seconds; all
+   sensor values in `/api/status` come from that response, never directly from
+   local ESP-NOW state. Keys stay on the board. An unavailable API or stale
+   shadow clears current readings to null. A warm-up flag is shown separately
+   from ADC counts.
+   The page also queries NETPIE Feed for 1/6/24-hour MQ-135 history. Enable Feed
+   and create an enabled Number Datatag with Attr `mq135_raw` to start recording.
+   The shared chart also prepares temperature, light, sound and flame fields;
+   raw history preserves recorded peaks and can be downloaded as CSV.
+6. Later gateway updates over Wi-Fi (OTA): set `GW_OTA_PASSWORD` env var, then
    `pio run -e gateway_ota -t upload`.
 
 The node finds the gateway by itself: it hops Wi-Fi channels until the gateway

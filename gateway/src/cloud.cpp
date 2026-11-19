@@ -79,12 +79,53 @@ static String buildSnapshot() {
   JsonObject d = doc["data"].to<JsonObject>();
   Lock l;
   d["ts"] = (uint32_t)time(nullptr);
+#if !GATEWAY_WEB_ONLY
   const IndoorState &in = g.in;
   if (!isnan(in.tempC)) d["in_temp"] = serialized(String(in.tempC, 2));
   if (!isnan(in.rh)) d["in_rh"] = serialized(String(in.rh, 1));
   if (in.scdOk) d["co2"] = in.co2;
   if (!isnan(in.lux)) d["lux"] = (int)in.lux;
   d["occupied"] = in.occupied ? 1 : 0;
+#endif
+  d["in_mq135_raw"] = nullptr; // clear the former local-sensor value
+  d["mq135_raw"] = nullptr;
+  d["mq135_node"] = MQ135_NODE_ID;
+  d["mq135_online"] = 0;
+  d["mq135_age_s"] = nullptr;
+  d["mq135_seq"] = nullptr;
+  d["mq135_sample_id"] = nullptr;
+  d["mq135_warmed_up"] = false;
+  d["mq135_temp"] = nullptr;
+  d["temperature_c"] = nullptr;
+  d["temperature_c_ts"] = nullptr;
+  d["mq135_rh"] = nullptr;
+  d["mq135_pm25"] = nullptr;
+  d["mq135_pm10"] = nullptr;
+  const NodeState *mq = mq135Node();
+  if (mq) {
+    uint32_t ageMs = millis() - mq->lastSeenMs;
+    d["mq135_age_s"] = ageMs / 1000;
+    d["mq135_seq"] = mq->last.seq;
+    d["mq135_sample_id"] = mq->received;
+    d["mq135_warmed_up"] = (mq->last.sensor_flags & SF_SMOKE) != 0;
+    if (ageMs < MQ135_STALE_MS) {
+      d["mq135_raw"] = mq->last.smoke_raw;
+      d["mq135_online"] = 1;
+      if (mq->last.sensor_flags & SF_SHT) {
+        if (isfinite(mq->last.temp_c)) {
+          d["mq135_temp"] = mq->last.temp_c;
+          d["temperature_c"] = mq->last.temp_c;
+          time_t now = time(nullptr);
+          if (now > 1600000000) d["temperature_c_ts"] = (uint32_t)now - ageMs / 1000;
+        }
+        if (isfinite(mq->last.rh)) d["mq135_rh"] = mq->last.rh;
+      }
+      if (mq->last.sensor_flags & SF_PMS) {
+        if (isfinite(mq->last.pm25)) d["mq135_pm25"] = mq->last.pm25;
+        if (isfinite(mq->last.pm10)) d["mq135_pm10"] = mq->last.pm10;
+      }
+    }
+  }
 
   const NodeState *out = primaryOutdoorNode();
   if (out) {
@@ -102,6 +143,7 @@ static String buildSnapshot() {
     }
   }
 
+  #if !GATEWAY_WEB_ONLY
   const ActState &a = g.act;
   d["ac_on"] = a.acOn ? 1 : 0;
   d["fan_pct"] = a.fanPct;
@@ -115,6 +157,7 @@ static String buildSnapshot() {
   d["ai_prob"] = serialized(String(g.ai.prob, 3));
   d["ai_valid"] = g.ai.valid ? 1 : 0;
   d["ac_presses"] = g.stats.acManualOnPresses;
+  #endif
 
   int online = 0;
   JsonObject nodes = d["nodes"].to<JsonObject>();
@@ -188,6 +231,9 @@ static bool bufferFlush() {
 // ------------------------------------------------------------------ commands
 // Dashboard publishes JSON to @msg/cmd, e.g. {"ac":"on"} {"window":"auto"} {"estop":"reset"}
 static void onMqtt(char *topic, byte *payload, unsigned int len) {
+#if GATEWAY_WEB_ONLY
+  return; // receiver role never controls local actuators
+#endif
   JsonDocument doc;
   if (deserializeJson(doc, payload, len)) return;
   auto mode = [](const char *s) -> int8_t {
@@ -215,7 +261,9 @@ static bool mqttConnect() {
     Serial.printf("[cloud] MQTT connect failed, state=%d\n", mqtt.state());
     return false;
   }
+#if !GATEWAY_WEB_ONLY
   mqtt.subscribe(TOPIC_CMD);
+#endif
   Serial.println("[cloud] MQTT connected (TLS)");
   return true;
 }
@@ -224,9 +272,11 @@ static void otaBegin() {
   ArduinoOTA.setHostname(GW_HOSTNAME);
   ArduinoOTA.setPassword(OTA_PASSWORD);
   ArduinoOTA.onStart([] {
+#if !GATEWAY_WEB_ONLY
     Lock l;
     g.act.estop = true; // freeze actuators during the update
     fanSet(0);
+#endif
   });
   ArduinoOTA.onEnd([] { Serial.println("[ota] done, rebooting"); });
   ArduinoOTA.onError([](ota_error_t e) { Serial.printf("[ota] error %u\n", e); });

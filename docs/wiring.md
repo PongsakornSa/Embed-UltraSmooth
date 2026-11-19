@@ -52,3 +52,13 @@ GND of adapter, buck, MOSFET module, servo and ESP32 all tied together
   may not fully switch on with 3.3 V.
 - If the fan is a bare motor, add a flyback diode (1N4007) across it
   (most MOSFET modules already have one).
+
+## Receiver/web-server configuration
+
+The current gateway role has no locally connected MQ-135 or sensor/actuator tasks.
+Connect MQ-135 AO to **node GPIO34** with a divider that keeps the ESP32 input at
+or below 3.3 V, plus a common GND and the module's required heater supply.
+The node's existing analog `smoke_raw` field carries this reading over ESP-NOW.
+The gateway selects `MQ135_NODE_ID` (default `out-01`) and publishes to NETPIE.
+The web server reads NETPIE Shadow back through HTTPS REST and exposes those
+cloud values, their age and source status at `/api/status` and `/`.

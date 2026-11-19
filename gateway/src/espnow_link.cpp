@@ -66,6 +66,15 @@ const NodeState *primaryOutdoorNode() {
   return best;
 }
 
+const NodeState *mq135Node() {
+  for (int i = 0; i < g.nodeCount; ++i) {
+    const NodeState &n = g.nodes[i];
+    if (n.received && !n.simulated && strcmp(n.id, MQ135_NODE_ID) == 0 && n.last.smoke_raw <= 4095)
+      return &n;
+  }
+  return nullptr;
+}
+
 void nodeTask(void *) {
   RxPacket rx;
   for (;;) {
@@ -79,7 +88,8 @@ void nodeTask(void *) {
     Lock l;
     NodeState *n = findOrAddNode(p.node_id);
     if (!n) continue;
-    bool fresh = n->received == 0 || p.seq > n->last.seq || p.seq + 1000 < n->last.seq /* node rebooted */;
+    bool fresh = n->received == 0 || p.seq > n->last.seq ||
+                 (p.seq < n->last.seq && p.uptime_ms < n->last.uptime_ms); // node rebooted
     if (!fresh) {
       n->duplicates++; // we got it before; our ACK was lost and the node re-sent
       continue;
@@ -89,5 +99,9 @@ void nodeTask(void *) {
     n->lastSeenMs = millis();
     n->received++;
     n->simulated = p.sensor_flags & SF_SIMULATED;
+    if (!n->simulated && strcmp(n->id, MQ135_NODE_ID) == 0)
+      Serial.printf("[espnow] MQ135 node=%s seq=%lu raw=%u %s\n", n->id,
+                    (unsigned long)p.seq, p.smoke_raw,
+                    (p.sensor_flags & SF_SMOKE) ? "ready" : "warming-up");
   }
 }

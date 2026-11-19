@@ -4,6 +4,13 @@
 
 #define GW_HOSTNAME "smart-classroom-gw"
 
+// Receiver/web-server role: no local sensor reads or actuator control.
+#ifndef GATEWAY_WEB_ONLY
+#define GATEWAY_WEB_ONLY 1
+#endif
+#define MQ135_NODE_ID "out-01" // existing protocol v2 smoke_raw carries this node's MQ-135 ADC
+#define MQ135_STALE_MS 30000UL
+
 // ---- Pins (ESP32 DevKit v1) ----
 #define PIN_I2C_SDA 21        // SCD40, SHT31, BH1750, OLED share this bus
 #define PIN_I2C_SCL 22
@@ -52,7 +59,8 @@
 #define EMPTY_AC_OFF_MS (10UL * 60 * 1000)  // AC off after 10 min empty
 #define NODE_OFFLINE_MS (2UL * 60 * 1000)   // node silent this long = offline
 #define SENSOR_PERIOD_MS 5000
-#define PUBLISH_PERIOD_MS 15000
+#define PUBLISH_PERIOD_MS 5000  // publish the latest snapshot every 5 s
+#define WEB_SHADOW_POLL_MS 2000 // read NETPIE shadow every 2 s
 #define AI_PERIOD_MS 60000
 #define LOG_PERIOD_MS 60000                 // Serial LOG line (AI training data)
 #define ALERT_COOLDOWN_MS (15UL * 60 * 1000)

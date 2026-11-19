@@ -21,7 +21,7 @@
 #define PIN_LED 2          // on-board LED: blinks on every ACK
 
 // ---- Timing ----
-#define SEND_INTERVAL_MS 10000 // one reading every 10 s
+#define SEND_INTERVAL_MS 2000  // one reading every 2 s
 #define ACK_TIMEOUT_MS 150     // wait this long for the gateway ACK
 #define MAX_RETRIES 3          // re-send attempts per packet
 #define FAILS_BEFORE_HOP 2     // failed packets before trying the next Wi-Fi channel

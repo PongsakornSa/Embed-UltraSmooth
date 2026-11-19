@@ -129,6 +129,8 @@ void raiseAlert(const char *key, const char *fmt, ...); // with per-key cooldown
 // Helper: best real (non-simulated) outdoor node that is online, or nullptr.
 // Call with gMutex held.
 const NodeState *primaryOutdoorNode();
+// Includes stale data so the web page can show its age. Call with gMutex held.
+const NodeState *mq135Node();
 
 // ------------------------------------------------------------------ modules
 void inputsBegin();      void inputTask(void *);
@@ -140,3 +142,10 @@ void controlTask(void *);
 void aiTask(void *);
 void cloudTask(void *);
 void displayBegin();     void displayUpdate();
+void webPoll(); // local HTTP dashboard, serviced by the Arduino loop task
+
+void webCloudRefresh(); // read NETPIE REST shadow; called only by cloudTask
+
+void webHistoryRefresh(); // NETPIE Feed history worker in cloudTask
+
+void webDataTask(void *); // dedicated NETPIE read task, independent of MQTT reconnects

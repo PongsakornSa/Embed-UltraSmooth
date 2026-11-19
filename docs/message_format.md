@@ -26,7 +26,7 @@ backlog and sends it later, oldest first.
 
 ## 2. Gateway -> cloud (NETPIE, MQTT over TLS, JSON)
 
-Topic `@shadow/data/update`, every 15 s:
+Topic `@shadow/data/update`, every 5 s:
 
 ```json
 {"data":{
@@ -66,3 +66,29 @@ One line per minute on USB serial:
 LOG,epoch,in_temp,in_rh,co2,occupied,lux,out_temp,hour_sin,hour_cos,slope,out_pm25,ac_on,fan,window,presses,ai_prob
 EVT,ac_manual_on,epoch
 ```
+
+## 6. MQ-135 receiver / local web server
+
+No wire-format change is required for the current node firmware. On the selected
+node (`MQ135_NODE_ID`, default `out-01`), connect MQ-135 to the existing GPIO34
+analog input. Protocol v2's `smoke_raw` field carries its 12-bit ADC reading;
+`SF_SMOKE` reports completion of the node firmware's warm-up timer. This flag
+does not certify calibration or air safety. Simulated nodes are excluded.
+
+`GET /api/status` returns `node_id`, `source: "netpie"`, `mq135_raw`,
+`last_mq135_raw`, `node_online`, `sample_age_s`, `sequence`, `sample_id`,
+`warmed_up`, packet counters and available node sensor values. All sensor values
+are mapped from a NETPIE REST shadow response cached by the board every 5 s.
+NETPIE errors, shadows older than 45 s, and stale/missing node samples produce
+null current readings. `netpie_connected` and `netpie_http` report REST status.
+ESP-NOW data is published to NETPIE every 5 s, then read back for the page.
+The default web-only role does not initialize local sensors or actuators and
+does not subscribe to actuator commands. NETPIE forwarding remains enabled.
+
+## Update intervals
+
+Node samples and sends every 2 seconds (`SEND_INTERVAL_MS=2000`). Gateway
+publishes its latest snapshot every 5 seconds (`PUBLISH_PERIOD_MS=5000`).
+Each change takes effect only after that board is flashed. Intermediate node
+readings may be replaced before the next gateway snapshot; Feed records the
+snapshots that reach NETPIE, rather than every 2-second node measurement.
