@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Classroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Smart Classroom</h1>
+      <span id="status" class="pill pill-muted">กำลังเชื่อมต่อ…</span>
+    </div>
+    <div class="top-right">
+      <span id="updated" class="muted small"></span>
+      <button id="btn-settings" class="icon-btn" title="ตั้งค่า" aria-label="ตั้งค่า">⚙</button>
+    </div>
+  </header>
+
+  <div id="alerts" class="alerts"></div>
+
+  <main>
+    <section class="group">
+      <h2>ในห้องเรียน</h2>
+      <div class="grid">
+        <div class="tile"><span class="label">อุณหภูมิ</span><span class="value"><b id="in_temp">–</b><small>°C</small></span></div>
+        <div class="tile"><span class="label">ความชื้น</span><span class="value"><b id="in_rh">–</b><small>%</small></span></div>
+        <div class="tile" id="tile-co2"><span class="label">CO₂</span><span class="value"><b id="co2">–</b><small>ppm</small></span><span class="hint" id="co2_hint"></span></div>
+        <div class="tile"><span class="label">แสง</span><span class="value"><b id="lux">–</b><small>lux</small></span></div>
+        <div class="tile"><span class="label">มีคนในห้อง</span><span class="value"><b id="occupied">–</b></span></div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>นอกห้อง <span class="muted small" id="node_name"></span></h2>
+      <div class="grid">
+        <div class="tile" id="tile-pm"><span class="label">PM2.5</span><span class="value"><b id="out_pm25">–</b><small>µg/m³</small></span><span class="hint" id="pm_hint"></span></div>
+        <div class="tile"><span class="label">อุณหภูมิ</span><span class="value"><b id="out_temp">–</b><small>°C</small></span></div>
+        <div class="tile"><span class="label">ความชื้น</span><span class="value"><b id="out_rh">–</b><small>%</small></span></div>
+        <div class="tile" id="tile-rain"><span class="label">ฝน</span><span class="value"><b id="raining">–</b></span></div>
+        <div class="tile" id="tile-smoke"><span class="label">ควัน (MQ-2)</span><span class="value"><b id="out_smoke">–</b><small>raw</small></span><span class="hint" id="smoke_hint"></span></div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>ควบคุม</h2>
+      <div class="controls">
+        <div class="card">
+          <div class="card-head">
+            <span class="label">เครื่องปรับอากาศ (พัดลม)</span>
+            <span id="ac_state" class="state">–</span>
+          </div>
+          <div class="meter"><div id="fan_bar" class="meter-fill"></div></div>
+          <p class="muted small" id="ac_meta">–</p>
+          <div class="seg" data-target="ac">
+            <button data-v="on">เปิด</button><button data-v="off">ปิด</button><button data-v="auto">อัตโนมัติ</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <span class="label">หน้าต่าง</span>
+            <span id="win_state" class="state">–</span>
+          </div>
+          <div class="meter"><div id="win_bar" class="meter-fill"></div></div>
+          <p class="muted small" id="win_meta">–</p>
+          <div class="seg" data-target="window">
+            <button data-v="open">เปิด</button><button data-v="close">ปิด</button><button data-v="auto">อัตโนมัติ</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <span class="label">AI ทำนายการเปิดแอร์</span>
+            <span id="ai_state" class="state">–</span>
+          </div>
+          <div class="meter"><div id="ai_bar" class="meter-fill"></div><div class="meter-mark" style="left:70%"></div></div>
+          <p class="muted small" id="ai_meta">–</p>
+          <button id="btn-estop" class="danger" hidden>รีเซ็ต Emergency Stop</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="group">
+      <div class="chart-head">
+        <h2>ย้อนหลัง</h2>
+        <div class="seg seg-sm" id="metric-seg">
+          <button data-m="temp" class="on">อุณหภูมิ</button><button data-m="co2">CO₂</button><button data-m="pm">PM2.5</button><button data-m="smoke">ควัน</button>
+        </div>
+        <div class="seg seg-sm" id="range-seg">
+          <button data-r="1" class="on">1 ชม.</button><button data-r="6">6 ชม.</button><button data-r="24">24 ชม.</button>
+        </div>
+      </div>
+      <div class="chart-box"><canvas id="chart"></canvas></div>
+      <p class="muted small" id="chart_note"></p>
+    </section>
+
+    <section class="group">
+      <h2>ระบบ</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Node</th><th>สถานะ</th><th>ล่าสุด</th><th>ได้รับ</th><th>หาย</th><th>ซ้ำ</th><th>PDR</th></tr></thead>
+          <tbody id="nodes"></tbody>
+        </table>
+      </div>
+      <p class="muted small mono" id="sys"></p>
+    </section>
+  </main>
+
+  <dialog id="dlg">
+    <form method="dialog" id="cfg-form">
+      <h3>เชื่อมต่อ NETPIE</h3>
+      <p class="muted small">ใช้ Client ID และ Token ของ device gateway ค่าจะถูกเก็บในเบราว์เซอร์นี้เท่านั้น</p>
+      <label>Client ID<input name="clientId" autocomplete="off" required></label>
+      <label>Token<input name="token" type="password" autocomplete="off" required></label>
+      <div class="dlg-actions">
+        <button value="cancel" formnovalidate class="ghost">ยกเลิก</button>
+        <button value="save" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <!-- optional, git-ignored: window.NETPIE_CONFIG = {clientId, token} -->
+  <script src="config.local.js" onerror="void 0"></script>
+  <script src="app.js"></script>
+</body>
+</html>

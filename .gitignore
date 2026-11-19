@@ -1,0 +1,22 @@
+# PlatformIO
+.pio/
+.vscode/
+*.bin
+
+# Secrets: never commit Wi-Fi passwords, tokens or keys
+**/include/secrets.h
+
+# Per-computer COM port settings
+**/platformio_local.ini
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Collected data (keep sample only)
+ai/data/*.csv
+!ai/data/sample_log.csv
+
+# Dashboard keys for local testing
+dashboard/config.local.js

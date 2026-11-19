@@ -1,0 +1,14 @@
+{
+  "folders": [
+    { "name": "gateway", "path": "gateway" },
+    { "name": "node", "path": "node" },
+    { "name": "repo (common, ai, docs)", "path": "." }
+  ],
+  "settings": {
+    "files.eol": "\n",
+    "C_Cpp.default.cppStandard": "gnu++17"
+  },
+  "extensions": {
+    "recommendations": ["platformio.platformio-ide"]
+  }
+}

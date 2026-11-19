@@ -1,0 +1,5 @@
+; Copy to platformio_local.ini and set YOUR gateway board's COM port.
+; Needed only when 2 boards are plugged in at the same time.
+[env:gateway]
+upload_port = COM4
+monitor_port = COM4
