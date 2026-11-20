@@ -36,26 +36,28 @@ Box: waterproof, sensor holes facing down; rain plate outside the box.
 | Limit switch OPEN | COM / NO | GPIO26 / GND | pressed when window fully open |
 | Limit switch CLOSED | COM / NO | GPIO14 / GND | pressed when window fully closed |
 | Servo MG996R | signal | GPIO19 | power from 5 V buck, **not** from the ESP32 |
-| Fan MOSFET module | SIG / IN | GPIO18 | module V+ / V- to 12 V, fan on output |
+| Fan relay module | IN | GPIO18 | use a 3.3 V logic-compatible module; default input is active-low |
+| Fan relay module | VCC / GND | supply per module / common GND | do not power the relay coil from an ESP32 GPIO |
+| Relay contacts | COM / NO | in series with fan supply | use a contact rating above the fan's startup current |
 
 ## Power
 
 ```
-12 V 2 A adapter ──┬── MOSFET module ── 12 V fan
+12 V 2 A adapter ──┬── relay COM/NO ── 12 V fan
                    └── LM2596 buck (set to 5.0 V) ──┬── servo V+
                                                      └── ESP32 VIN
-GND of adapter, buck, MOSFET module, servo and ESP32 all tied together
+GND of adapter, buck, relay module, servo and ESP32 all tied together
 ```
 
 - Put a 470-1000 uF capacitor across the servo supply (servo start current).
-- MOSFET module: use a logic-level one (IRLZ44N / AO3400 based). An IRF520 module
-  may not fully switch on with 3.3 V.
-- If the fan is a bare motor, add a flyback diode (1N4007) across it
-  (most MOSFET modules already have one).
+- Set `FAN_RELAY_ACTIVE_LOW` in `gateway/include/config.h` to match the relay module.
+- The relay contacts must be rated for the fan's startup current; a DC motor fan can
+  draw several times its running current when it starts.
 
 ## Receiver/web-server configuration
 
-The current gateway role has no locally connected MQ-135 or sensor/actuator tasks.
+The current gateway role has no locally connected sensor/window tasks; the fan relay
+is controlled from the NETPIE-fed model.
 Connect MQ-135 AO to **node GPIO34** with a divider that keeps the ESP32 input at
 or below 3.3 V, plus a common GND and the module's required heater supply.
 The node's existing analog `smoke_raw` field carries this reading over ESP-NOW.

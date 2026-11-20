@@ -8,6 +8,7 @@
 #ifndef GATEWAY_WEB_ONLY
 #define GATEWAY_WEB_ONLY 1
 #endif
+#define GATEWAY_GAS_FAN_CONTROL 1 // trained model drives only PIN_FAN_PWM; fail-safe off on stale inputs
 #define MQ135_NODE_ID "out-01" // existing protocol v2 smoke_raw carries this node's MQ-135 ADC
 #define MQ135_STALE_MS 30000UL
 
@@ -20,7 +21,9 @@
 #define PIN_BTN_ESTOP 25      // emergency stop, to GND
 #define PIN_LIMIT_OPEN 26     // window fully-open limit switch, to GND
 #define PIN_LIMIT_CLOSED 14   // window fully-closed limit switch, to GND
-#define PIN_FAN_PWM 18        // MOSFET gate -> 12 V fan ("air conditioner")
+#define PIN_FAN_RELAY 18      // relay module IN for the fan
+#define PIN_FAN_PWM PIN_FAN_RELAY // legacy name; output is binary when using a relay
+#define FAN_RELAY_ACTIVE_LOW 1 // common relay-module polarity; set 0 for active-high modules
 #define PIN_SERVO 19          // window servo signal
 #define PIN_LED_STATUS 2      // on-board LED: solid = cloud OK, blink = offline
 

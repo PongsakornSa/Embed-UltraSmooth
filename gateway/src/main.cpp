@@ -52,7 +52,13 @@ void setup() {
   xTaskCreatePinnedToCore(sensorTask,  "sensor",  4096, nullptr, 2, nullptr, 1);
   xTaskCreatePinnedToCore(aiTask,      "ai",      4096, nullptr, 2, nullptr, 1);
 #else
-  Serial.printf("[gw] receiver + web server; MQ-135 source node=%s, no local sensors/actuators\n", MQ135_NODE_ID);
+  Serial.printf("[gw] receiver + web server; MQ-135 source node=%s, local sensors/window actuator disabled\n", MQ135_NODE_ID);
+#endif
+#if GATEWAY_GAS_FAN_CONTROL
+  pinMode(PIN_BTN_ESTOP, INPUT_PULLUP);
+  fanBegin(); // model-controlled fan output; emergency-stop input is active-low
+  Serial.printf("[gw] gas fan model enabled: GPIO%d relay active-%s, GPIO%d stop\n",
+                PIN_FAN_RELAY, FAN_RELAY_ACTIVE_LOW ? "low" : "high", PIN_BTN_ESTOP);
 #endif
   xTaskCreatePinnedToCore(nodeTask,    "node",    4096, nullptr, 3, nullptr, 1);
   // cloud task on core 0 next to the Wi-Fi stack; it also starts ESP-NOW

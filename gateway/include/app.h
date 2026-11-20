@@ -136,6 +136,7 @@ const NodeState *mq135Node();
 void inputsBegin();      void inputTask(void *);
 void actuatorsBegin();   void windowTask(void *);
 void fanSet(uint8_t pct);
+void fanBegin();
 void sensorsBegin();     void sensorTask(void *);
 void espnowBegin();      void nodeTask(void *);
 void controlTask(void *);

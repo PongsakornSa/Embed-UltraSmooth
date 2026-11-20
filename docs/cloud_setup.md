@@ -90,14 +90,15 @@ Historical samples only exist after recording is configured.
 An empty chart is expected until the field is configured and data arrives.
 Official Feed API: https://docs.netpie.io/en/device-api.html
 
-## Shared sensor chart (prepared fields)
+## Shared sensor charts
 
-One chart supports five sensor selectors and 1/6/24-hour Feed history:
+The dashboard has separate sensor cards with NETPIE Feed history:
 
 | Sensor | NETPIE Shadow field / Feed Attr | Unit |
 |---|---|---|
 | MQ-135 | `mq135_raw` | ADC 0–4095 |
 | Temperature | `temperature_c` | °C |
+| Humidity | `mq135_rh` | %RH |
 | Light | `light_lux` | lux |
 | Sound | `sound_raw` | raw ADC, not dB |
 | Flame | `flame_raw` | raw ADC, not a fire alarm |
@@ -106,14 +107,34 @@ For history, use Feed -> Add datatag, select the matching Shadow Data Path,
 Data Type Number, set Attr exactly as in the table, choose TTL and enable the
 Datatag. Current NETPIE uses Datatags rather than Schema alone to enable storage.
 
-The current protocol v2 node supplies MQ-135 through `smoke_raw` and temperature
-through `temp_c` with SF_SHT. The gateway publishes `temperature_c` and its sample
-timestamp `temperature_c_ts`. Light, sound and flame are prepared web fields only:
+The current protocol v2 node supplies MQ-135 through `smoke_raw`, temperature
+through `temp_c`, and relative humidity through `rh` with SF_SHT. The gateway
+publishes `temperature_c` and `mq135_rh` from that node. Add and enable a NETPIE
+Feed Datatag for `mq135_rh` to store humidity history. Light, sound and flame are prepared web fields only:
 the existing node firmware does not transmit them. Future sensor publishers must
 send each value and its `<field>_ts` as Unix seconds (e.g. `light_lux_ts`). Missing
 or stale samples stay null; no sensor values or dB/ppm conversions are invented.
-`GET /api/history?metric=light&hours=6` selects a metric and time range. Allowed
-metrics are mq135, temperature, light, sound, flame; missing metric defaults to
+
+The MQ-135 card converts the recorded `mq135_raw` ADC history to the
+dimensionless `Rs/R0` ratio. This is the Gas Anomaly Model input; it is not ppm
+or a gas concentration. Set R0 from the card while the warmed-up Node is in
+clean air; the baseline is saved in Gateway Preferences. The ratio uses the
+documented 5 V sensor supply and 10k/20k AO divider, so the module load
+resistor cancels. CSV keeps both the original ADC and calculated `Rs/R0` ratio.
+
+The AI Fan Control panel uses a fan recommendation from the on-device
+logistic model trained with `ai/train_gas_fan_model.py` and the supplied
+`temperature_c,humidity_rh,gas_rs_r0,fan_on` CSV. It requires fresh values for
+all three inputs and a configured R0. A probability at or above 0.40 means
+"recommend fan on". The Gateway switches the fan relay on GPIO18 (digital
+ON/OFF; default active-low, configurable in `config.h`). It requires three consecutive matching model decisions and at least
+30 seconds between transitions. Stale/missing inputs or a low GPIO25
+active-low emergency stop force the fan off. Validation on a sequential 80/20
+row split of the supplied 35,360-row file was 66.9% accuracy and 67.2%
+balanced accuracy, so this remains an experimental control model; verify the
+relay/fan wiring and keep an independent physical power cutoff available.
+`GET /api/history?metric=light&hours=72` selects a metric and time range. Allowed
+metrics are mq135, temperature, humidity, light, sound, flame; missing metric defaults to
 mq135 for compatibility. History response caching is bounded to 24 KB.
 
 ## Raw history update
@@ -154,7 +175,7 @@ before using absolute timestamps, avoiding malformed ranges during startup.
 Node source configuration now reads/sends every 2 seconds. Gateway NETPIE
 publish configuration is 5 seconds. The node must be flashed separately for
 its new interval to apply; updating only the gateway leaves the deployed node's
-existing interval unchanged. NETPIE readback polls every 2 seconds and the browser live view every 1 second.
+existing interval unchanged. NETPIE readback polls every 2 seconds and the browser live view every 10 seconds.
 
 ## Current tuned timing
 
@@ -163,7 +184,7 @@ existing interval unchanged. NETPIE readback polls every 2 seconds and the brows
 | Node sampling/sending | 2 s (source/firmware prepared; requires node flash) |
 | Gateway MQTT snapshot | 5 s |
 | NETPIE Shadow readback | 2 s |
-| Browser live value read | 1 s |
+| Browser live value read | 10 s |
 | Recent raw Feed history | 10 s; incremental |
 | Empty, inactive history fields | 60 s |
 

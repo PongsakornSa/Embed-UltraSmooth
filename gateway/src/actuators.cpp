@@ -17,13 +17,21 @@ static void servoWriteAngle(int deg) {
 
 void fanSet(uint8_t pct) {
   pct = min<uint8_t>(pct, 100);
-  ledcWrite(LEDC_CH_FAN, (uint32_t)pct * 255 / 100);
+  const bool on = pct > 0;
+  const uint8_t active = FAN_RELAY_ACTIVE_LOW ? LOW : HIGH;
+  const uint8_t inactive = FAN_RELAY_ACTIVE_LOW ? HIGH : LOW;
+  digitalWrite(PIN_FAN_RELAY, on ? active : inactive);
+}
+
+void fanBegin() {
+  // Preload the inactive level before enabling the output to avoid a boot pulse.
+  digitalWrite(PIN_FAN_RELAY, FAN_RELAY_ACTIVE_LOW ? HIGH : LOW);
+  pinMode(PIN_FAN_RELAY, OUTPUT);
+  fanSet(0);
 }
 
 void actuatorsBegin() {
-  ledcSetup(LEDC_CH_FAN, 25000, 8);
-  ledcAttachPin(PIN_FAN_PWM, LEDC_CH_FAN);
-  fanSet(0);
+  fanBegin();
 
   ledcSetup(LEDC_CH_SERVO, 50, 16);
   ledcAttachPin(PIN_SERVO, LEDC_CH_SERVO);
