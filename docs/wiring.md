@@ -11,8 +11,8 @@ Fan and servo use their own supply; **connect all grounds together**.
 | | GND | GND | |
 | | TX | GPIO16 (RX2) | 3.3 V logic, direct |
 | | RX | GPIO17 (TX2) | |
-| SHT31 | VIN / GND | 3V3 / GND | |
-| | SDA / SCL | GPIO21 / GPIO22 | |
+| DHT22 | VCC / GND | 3V3 / GND | use a 3.3 V compatible module |
+| | DATA | GPIO18 | bare sensor needs a 4.7–10 kΩ pull-up from DATA to 3V3 |
 | Rain module | VCC / GND | 3V3 / GND | |
 | | AO | GPIO35 | ADC1 (ADC2 does not work with radio on) |
 | MQ-2 smoke | VCC / GND | 5V (VIN) / GND | heater needs 5 V, warm-up ~1 min |

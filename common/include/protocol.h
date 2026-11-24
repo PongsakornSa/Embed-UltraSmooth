@@ -20,6 +20,8 @@ enum SensorFlag : uint8_t {
   SF_SHT = 1 << 1,
   SF_RAIN = 1 << 2,
   SF_SMOKE = 1 << 3, // MQ-2 warmed up and reading
+  SF_GAS_SIMULATED = 1 << 5, // generated gas ADC value; not valid for control
+  SF_DHT_SIMULATED = 1 << 6, // temp/RH are generated because DHT read failed
   SF_SIMULATED = 1 << 7, // packet produced by a simulated node
 };
 

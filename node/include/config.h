@@ -8,12 +8,12 @@
 #define SIM_EXTRA_NODES 0
 #endif
 #ifndef MOCK_SENSORS
-#define MOCK_SENSORS 0 // 1 = fake PMS/SHT/rain values (env node_out01_mock)
+#define MOCK_SENSORS 0 // 1 = fake PMS/DHT22/rain values (env node_out01_mock)
 #endif
+#define DEMO_FAN_TEST 0 // use physical sensor readings; set 1 only for fan demo
 
 // ---- Pins (ESP32 DevKit v1) ----
-#define PIN_I2C_SDA 21     // SHT31
-#define PIN_I2C_SCL 22
+#define PIN_DHT 18       // DHT22 DATA (GPIO18)
 #define PIN_PMS_RX 16      // ESP32 RX2 <- PMS5003 TX
 #define PIN_PMS_TX 17      // ESP32 TX2 -> PMS5003 RX
 #define PIN_SMOKE_AO 34    // MQ-2 analog out through 10k/20k divider (5 V -> 3.3 V)

@@ -12,7 +12,7 @@ Defined in [`common/include/protocol.h`](../common/include/protocol.h). Packed s
 | seq | uint32 | +1 per reading; used for PDR, duplicate and gap detection |
 | uptime_ms | uint32 | node `millis()` at reading time |
 | retries | uint8 | how many times this packet was re-sent |
-| sensor_flags | uint8 | bit0 PMS ok, bit1 SHT ok, bit2 rain ok, bit3 smoke ok (warmed up), bit7 simulated node |
+| sensor_flags | uint8 | bit0 PMS ok, bit1 temperature/RH ok (DHT22 on node), bit2 rain ok, bit3 smoke ok (warmed up), bit7 simulated node |
 | pm25, pm10 | float | outdoor ug/m3 |
 | temp_c, rh | float | outdoor temperature / humidity |
 | rain_raw | uint16 | rain ADC (lower = wetter) |

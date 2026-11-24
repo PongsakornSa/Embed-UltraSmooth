@@ -108,7 +108,7 @@ Data Type Number, set Attr exactly as in the table, choose TTL and enable the
 Datatag. Current NETPIE uses Datatags rather than Schema alone to enable storage.
 
 The current protocol v2 node supplies MQ-135 through `smoke_raw`, temperature
-through `temp_c`, and relative humidity through `rh` with SF_SHT. The gateway
+through `temp_c`, and relative humidity through `rh` with the temperature/RH sensor flag (DHT22 on the node). The gateway
 publishes `temperature_c` and `mq135_rh` from that node. Add and enable a NETPIE
 Feed Datatag for `mq135_rh` to store humidity history. Light, sound and flame are prepared web fields only:
 the existing node firmware does not transmit them. Future sensor publishers must

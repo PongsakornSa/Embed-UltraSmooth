@@ -1,6 +1,6 @@
 // Sensor node (outdoor) - Smart Classroom
 //
-// Reads outdoor PM2.5/PM10 (PMS5003), temperature/humidity (SHT31), rain and smoke (MQ-2),
+// Reads outdoor PM2.5/PM10 (PMS5003), temperature/humidity (DHT22), rain and smoke (MQ-2),
 // then sends a SensorPacket to the gateway over ESP-NOW.
 //
 // Reliability (E4):
@@ -12,18 +12,19 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <Wire.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
 #include <Preferences.h>
+#include <ArduinoOTA.h>
 
 #include "config.h"
+#include "secrets.h"
 #include "protocol.h"
 #include "drivers/pms5003.h"
-#include "drivers/sht31.h"
+#include <DHT.h>
 
 static Pms5003 pms;
-static Sht31 sht;
+static DHT dht22(PIN_DHT, DHT22);
 static Preferences prefs;
 
 static const uint8_t BROADCAST[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
@@ -31,6 +32,7 @@ static uint8_t gatewayMac[6];
 static bool gatewayKnown = false;
 static uint8_t channel = 1;
 static int failStreak = 0;
+static bool wifiConnected = false;
 
 // ACK handshake between the ESP-NOW callback (Wi-Fi task) and loop()
 static volatile uint32_t ackSeq = 0;
@@ -69,6 +71,14 @@ static void addPeer(const uint8_t *mac) {
 }
 
 static void setChannel(uint8_t ch) {
+  // When joined to the AP, ESP-NOW must stay on the AP's channel for both
+  // the gateway link and OTA. Channel hopping is only used while offline.
+  if (WiFi.status() == WL_CONNECTED) {
+    channel = WiFi.channel();
+    addPeer(BROADCAST);
+    if (gatewayKnown) addPeer(gatewayMac);
+    return;
+  }
   channel = ch;
   esp_wifi_set_promiscuous(true);
   esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
@@ -189,6 +199,27 @@ static SensorPacket readRealNode() {
   SensorPacket p;
   fillHeader(p, NODE_ID, 0);
 
+#if DEMO_FAN_TEST
+  // Demo fan test: alternate 60-second high/low feature ranges so the
+  // Gateway's existing model can switch the relay ON and OFF visibly.
+  // This branch deliberately bypasses physical DHT/gas reads.
+  const bool fanOnPhase = ((millis() / 60000UL) % 2U) == 0U;
+  if (fanOnPhase) {
+    p.temp_c = 29.0f + random(0, 21) * 0.1f;
+    p.rh = 70.0f + random(0, 101) * 0.1f;
+    p.smoke_raw = random(650, 751);
+  } else {
+    p.temp_c = 21.0f + random(0, 21) * 0.1f;
+    p.rh = 30.0f + random(0, 101) * 0.1f;
+    p.smoke_raw = random(300, 401);
+  }
+  p.rain_raw = 3900;
+  p.raining = 0;
+  p.smoky = 0;
+  p.sensor_flags = SF_SHT | SF_DHT_SIMULATED | SF_GAS_SIMULATED | SF_SMOKE | SF_RAIN;
+  return p;
+#else
+
   if (millis() - pms.lastFrameMs() < PMS_STALE_MS && pms.lastFrameMs() != 0) {
     p.pm25 = pms.pm25();
     p.pm10 = pms.pm10();
@@ -197,8 +228,9 @@ static SensorPacket readRealNode() {
     p.pm25 = p.pm10 = NAN;
   }
 
-  float t, h;
-  if (sht.read(t, h)) {
+  const float h = dht22.readHumidity();
+  const float t = dht22.readTemperature();
+  if (isfinite(t) && isfinite(h) && h >= 0 && h <= 100 && t >= -40 && t <= 80) {
     p.temp_c = t;
     p.rh = h;
     p.sensor_flags |= SF_SHT;
@@ -214,11 +246,14 @@ static SensorPacket readRealNode() {
   uint32_t sum = 0;
   for (int i = 0; i < 8; i++) sum += analogRead(PIN_SMOKE_AO);
   p.smoke_raw = sum / 8;
-  if (millis() > SMOKE_WARMUP_MS) { // heater still warming up -> not valid yet
+  if (p.smoke_raw < 20) {
+    p.smoky = 0;
+  } else if (millis() > SMOKE_WARMUP_MS) { // heater still warming up -> not valid yet
     p.smoky = p.smoke_raw > SMOKE_THRESHOLD;
     p.sensor_flags |= SF_SMOKE;
   }
   return p;
+#endif
 }
 
 // Simulated node: plausible values with slow drift + noise.
@@ -251,7 +286,7 @@ static void handlePacket(SensorPacket p) {
   if (++failStreak >= FAILS_BEFORE_HOP) { // gateway may be on another channel
     failStreak = 0;
     gatewayKnown = false;
-    setChannel(channel % 13 + 1);
+    if (!wifiConnected) setChannel(channel % 13 + 1);
   }
 }
 
@@ -263,7 +298,7 @@ static float adcVolts(uint16_t raw) { return raw * 3.3f / 4095.0f; }
 static void printReading(const SensorPacket &p) {
   const char *mockTag = MOCK_SENSORS ? "MOCK   " : "";
   Serial.printf("\n[read] seq=%lu uptime=%lus%s\n", (unsigned long)p.seq, millis() / 1000,
-                MOCK_SENSORS ? "  (MOCK mode: PMS/SHT/rain are fake, MQ-2 is real)" : "");
+                MOCK_SENSORS ? "  (MOCK mode: PMS/DHT22/rain are fake, MQ-2 is real)" : "");
 
   // PMS5003 (UART)
   if (p.sensor_flags & SF_PMS) {
@@ -274,11 +309,12 @@ static void printReading(const SensorPacket &p) {
     Serial.printf("  PMS5003 STALE   last frame %lus ago\n", (millis() - pms.lastFrameMs()) / 1000);
   }
 
-  // SHT31 (I2C)
+  // DHT22 (single-wire GPIO)
   if (p.sensor_flags & SF_SHT) {
-    Serial.printf("  SHT31   %sOK      temp=%.2f C  RH=%.1f %%\n", mockTag, p.temp_c, p.rh);
+    Serial.printf("  DHT22   %s%s temp=%.1f C  RH=%.1f %%\n", mockTag,
+                  (p.sensor_flags & SF_DHT_SIMULATED) ? "SIMULATED" : "OK       ", p.temp_c, p.rh);
   } else {
-    Serial.printf("  SHT31   MISSING no reply at 0x44 (check SDA=%d SCL=%d, 3V3, GND)\n", PIN_I2C_SDA, PIN_I2C_SCL);
+    Serial.printf("  DHT22   MISSING/no checksum (check DATA=GPIO%d, 3V3, GND, pull-up)\n", PIN_DHT);
   }
 
   // Rain (analog, lower = wetter)
@@ -288,7 +324,12 @@ static void printReading(const SensorPacket &p) {
   // MQ-2 (analog via 10k/20k divider, higher = more smoke)
   float vPin = adcVolts(p.smoke_raw);
   Serial.printf("  MQ-2    raw=%4u  pin=%.2fV  AO~%.2fV  -> ", p.smoke_raw, vPin, vPin * 1.5f);
-  if (!(p.sensor_flags & SF_SMOKE)) {
+  if (p.sensor_flags & SF_GAS_SIMULATED) {
+    Serial.printf("SIMULATED (%s phase for fan test)\n",
+                  ((millis() / 60000UL) % 2U) == 0U ? "ON" : "OFF");
+  } else if (p.smoke_raw < 20) {
+    Serial.println("NO SIGNAL");
+  } else if (!(p.sensor_flags & SF_SMOKE)) {
     Serial.printf("warming up (%lus left)\n", (SMOKE_WARMUP_MS - millis()) / 1000);
   } else {
     Serial.printf("%s (smoke above %d)\n", p.smoky ? "SMOKE" : "clear", SMOKE_THRESHOLD);
@@ -316,13 +357,36 @@ static void printStats() {
 void setup() {
   Serial.begin(115200);
   pinMode(PIN_LED, OUTPUT);
-  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
-  if (!sht.begin()) Serial.println("[node] SHT31 not found");
+  dht22.begin();
+  Serial.printf("[node] DHT22 DATA on GPIO%d\n", PIN_DHT);
   pms.begin(Serial2, PIN_PMS_RX, PIN_PMS_TX);
   analogReadResolution(12);
+  randomSeed(esp_random());
 
   WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
+  WiFi.setHostname("exam-barrier-out-01");
+  WiFi.setSleep(false);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.printf("[node] joining Wi-Fi %s", WIFI_SSID);
+  uint32_t wifiStart = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 20000) {
+    delay(250);
+    Serial.print('.');
+  }
+  wifiConnected = WiFi.status() == WL_CONNECTED;
+  if (wifiConnected) {
+    Serial.printf("\n[node] Wi-Fi connected, IP %s, channel %u\n",
+                  WiFi.localIP().toString().c_str(), WiFi.channel());
+    ArduinoOTA.setHostname("exam-barrier-out-01");
+    ArduinoOTA.setPassword(OTA_PASSWORD);
+    ArduinoOTA.onStart([] { Serial.println("[ota] update started"); });
+    ArduinoOTA.onEnd([] { Serial.println("[ota] update complete, rebooting"); });
+    ArduinoOTA.onError([](ota_error_t e) { Serial.printf("[ota] error %u\n", e); });
+    ArduinoOTA.begin();
+    Serial.println("[ota] ready at exam-barrier-out-01.local");
+  } else {
+    Serial.println("\n[node] Wi-Fi unavailable; ESP-NOW channel hopping only, OTA disabled");
+  }
   if (esp_now_init() != ESP_OK) {
     Serial.println("[node] ESP-NOW init failed, restarting");
     delay(1000);
@@ -331,11 +395,12 @@ void setup() {
   esp_now_register_recv_cb(onRecv);
 
   prefs.begin("node", false);
-  setChannel(prefs.getUChar("ch", 1));
+  setChannel(wifiConnected ? WiFi.channel() : prefs.getUChar("ch", 1));
   Serial.printf("[node] %s ready, MAC %s, sim nodes=%d\n", NODE_ID, WiFi.macAddress().c_str(), SIM_EXTRA_NODES);
 }
 
 void loop() {
+  if (wifiConnected) ArduinoOTA.handle();
   pms.poll(); // keep parsing PMS5003 frames between sends
 
   static uint32_t lastSend = 0, lastStats = 0;

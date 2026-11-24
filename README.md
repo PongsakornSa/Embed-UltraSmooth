@@ -9,9 +9,9 @@ usually press the AC button** and turns the AC on a few minutes earlier
 ```
  [Sensor node - outdoor]                [Gateway - indoor]                       [Cloud]
   PMS5003  PM2.5/PM10                    SCD40 CO2, SHT31, BH1750, PIR            NETPIE (MQTT/TLS)
-  SHT31    temp/RH      --ESP-NOW-->     FreeRTOS tasks, decision logic   --->    shadow + feed (storage)
+  DHT22    temp/RH      --ESP-NOW-->     FreeRTOS tasks, decision logic   --->    shadow + feed (storage)
   Rain, MQ-2 smoke      <---ACK---       on-device AI (MLP)                       web dashboard
-                                         Fan "AC" (MOSFET PWM)                    Telegram alerts
+                                         Fan "AC" (relay GPIO)                    Telegram alerts
                                          Window servo + limit switches    <---    commands (@msg/cmd)
                                          Buttons, E-stop, OLED
 ```
@@ -21,7 +21,7 @@ usually press the AC button** and turns the AC on a few minutes earlier
 | Path | What |
 |---|---|
 | `common/include/protocol.h` | node <-> gateway message format |
-| `common/include/drivers/` | **our own** drivers: SHT31, SCD4x, BH1750 (I2C), PMS5003 (UART) |
+| `common/include/drivers/` | **our own** drivers: SHT31, SCD4x, BH1750 (I2C), PMS5003 (UART); node DHT22 uses the Adafruit DHT library |
 | `node/` | PlatformIO project, sensor node firmware |
 | `gateway/` | PlatformIO project, gateway firmware |
 | `ai/train_model.py` | trains the AC-prediction model, writes `gateway/include/ac_model.h` |
@@ -89,7 +89,7 @@ retrain on real logs before the demo.
 
 | Item | Where |
 |---|---|
-| M1 sensors (7 types) | node: PMS5003, SHT31, rain, MQ-2 smoke; gateway: SCD40, SHT31 (same type), BH1750, PIR/LD2410 |
+| M1 sensors (7 types) | node: PMS5003, DHT22, rain, MQ-2 smoke; gateway: SCD40, SHT31, BH1750, PIR/LD2410 |
 | M2 actuator | window servo, fan (DC motor) - `gateway/src/actuators.cpp` |
 | M3 node -> gateway | ESP-NOW + ACK - `node/src/main.cpp`, `gateway/src/espnow_link.cpp` |
 | M4 AI closed loop | `gateway/src/ai.cpp` -> `control.cpp` turns AC on when prob >= 0.7 |

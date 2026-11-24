@@ -48,4 +48,4 @@ Fill in the **Result** column during testing (date, pass/fail, numbers, video li
 | Sensor -> dashboard latency | compare `ts` in the JSON with the time the dashboard shows it |
 | AI precision / recall | `python ai/train_model.py ai/data/*.csv` prints test-set precision/recall |
 | Uptime | run >= 24 h; `uptime_s`, `boots`, NETPIE feed gaps |
-| Sensor accuracy | SHT31 vs reference thermometer, PMS5003 vs Air4Thai station / reference meter |
+| Sensor accuracy | DHT22 vs reference thermometer, PMS5003 vs Air4Thai station / reference meter |

@@ -20,3 +20,7 @@ ai/data/*.csv
 
 # Dashboard keys for local testing
 dashboard/config.local.js
+
+# Local firmware snapshots and superseded DHT drivers
+node/backups/
+node/include/drivers/
